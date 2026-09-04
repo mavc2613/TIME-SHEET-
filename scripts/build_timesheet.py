@@ -17,8 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = ROOT / "data" / "punch_records.csv"
 OUT_PATH = ROOT / "output" / "timesheet.xlsx"
 
-HEADERS = ["Employee ID", "Employee Name", "Date", "Time In", "Time Out", "Source Image", "Notes"]
+HEADERS = ["Employee ID", "Date", "Time Out", "Time In", "Notes"]
 FONT_NAME = "Arial"
+BLANK = "-"
 
 
 def parse_date(value):
@@ -62,24 +63,26 @@ def main():
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
     for r, rec in enumerate(rows, start=2):
+        date_val = parse_date(rec.get("date", "")) or BLANK
+        time_out_val = parse_time(rec.get("time_out", "")) or BLANK
+        time_in_val = parse_time(rec.get("time_in", "")) or BLANK
+        notes_val = rec.get("notes", "").strip() or BLANK
         values = [
-            rec.get("employee_id", ""),
-            rec.get("employee_name", ""),
-            parse_date(rec.get("date", "")),
-            parse_time(rec.get("time_in", "")),
-            parse_time(rec.get("time_out", "")),
-            rec.get("source_image", ""),
-            rec.get("notes", ""),
+            rec.get("employee_id", "") or BLANK,
+            date_val,
+            time_out_val,
+            time_in_val,
+            notes_val,
         ]
         for c, val in enumerate(values, start=1):
             cell = ws.cell(row=r, column=c, value=val)
             cell.font = Font(name=FONT_NAME)
-            if c == 3 and isinstance(val, dt.date):
+            if c == 2 and isinstance(val, dt.date):
                 cell.number_format = "yyyy-mm-dd"
-            if c in (4, 5) and isinstance(val, dt.time):
+            if c in (3, 4) and isinstance(val, dt.time):
                 cell.number_format = "HH:MM"
 
-    widths = [14, 22, 12, 10, 10, 30, 30]
+    widths = [14, 12, 10, 10, 40]
     for i, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
