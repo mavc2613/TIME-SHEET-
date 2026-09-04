@@ -46,9 +46,20 @@ def parse_time(value):
     return value
 
 
+def sort_key(rec):
+    try:
+        emp_id = int(rec.get("employee_id", "") or 0)
+    except ValueError:
+        emp_id = rec.get("employee_id", "")
+    date_val = parse_date(rec.get("date", ""))
+    date_key = date_val if isinstance(date_val, dt.date) else dt.date.min
+    return (emp_id, date_key)
+
+
 def main():
     with open(CSV_PATH, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    rows.sort(key=sort_key)
 
     wb = Workbook()
     ws = wb.active
