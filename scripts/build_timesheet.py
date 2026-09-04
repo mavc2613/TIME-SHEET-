@@ -20,6 +20,7 @@ OUT_PATH = ROOT / "output" / "timesheet.xlsx"
 HEADERS = ["Employee ID", "Date", "Time Out", "Time In", "Notes"]
 FONT_NAME = "Arial"
 BLANK = "-"
+FRIDAY_FILL = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
 
 def parse_date(value):
@@ -92,6 +93,7 @@ def main():
             time_in_val,
             notes_val,
         ]
+        is_friday = isinstance(date_val, dt.date) and date_val.weekday() == 4
         for c, val in enumerate(values, start=1):
             cell = ws.cell(row=r, column=c, value=val)
             cell.font = Font(name=FONT_NAME)
@@ -99,6 +101,8 @@ def main():
                 cell.number_format = "yyyy-mm-dd"
             if c in (3, 4) and isinstance(val, dt.time):
                 cell.number_format = "HH:MM"
+            if is_friday:
+                cell.fill = FRIDAY_FILL
         r += 1
 
     widths = [14, 12, 10, 10, 40]
