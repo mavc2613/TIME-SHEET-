@@ -62,13 +62,20 @@ def main():
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    for r, rec in enumerate(rows, start=2):
+    r = 2
+    prev_employee_id = None
+    for rec in rows:
+        employee_id = rec.get("employee_id", "")
+        if prev_employee_id is not None and employee_id != prev_employee_id:
+            r += 1  # blank row separating employees
+        prev_employee_id = employee_id
+
         date_val = parse_date(rec.get("date", "")) or BLANK
         time_out_val = parse_time(rec.get("time_out", "")) or BLANK
         time_in_val = parse_time(rec.get("time_in", "")) or BLANK
         notes_val = rec.get("notes", "").strip() or BLANK
         values = [
-            rec.get("employee_id", "") or BLANK,
+            employee_id or BLANK,
             date_val,
             time_out_val,
             time_in_val,
@@ -81,6 +88,7 @@ def main():
                 cell.number_format = "yyyy-mm-dd"
             if c in (3, 4) and isinstance(val, dt.time):
                 cell.number_format = "HH:MM"
+        r += 1
 
     widths = [14, 12, 10, 10, 40]
     for i, width in enumerate(widths, start=1):
