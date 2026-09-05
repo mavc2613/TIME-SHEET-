@@ -57,9 +57,43 @@ def sort_key(rec):
     return (emp_id, date_key)
 
 
+def fill_missing_days(rows):
+    all_dates = [parse_date(rec.get("date", "")) for rec in rows]
+    all_dates = [d for d in all_dates if isinstance(d, dt.date)]
+    if not all_dates:
+        return rows
+
+    full_range = [
+        dt.date.fromordinal(o)
+        for o in range(min(all_dates).toordinal(), max(all_dates).toordinal() + 1)
+    ]
+
+    by_employee = {}
+    for rec in rows:
+        by_employee.setdefault(rec.get("employee_id", ""), set()).add(
+            parse_date(rec.get("date", ""))
+        )
+
+    filled = list(rows)
+    for employee_id, existing_dates in by_employee.items():
+        for day in full_range:
+            if day not in existing_dates:
+                filled.append(
+                    {
+                        "employee_id": employee_id,
+                        "date": day.isoformat(),
+                        "time_in": "",
+                        "time_out": "",
+                        "notes": "No entry",
+                    }
+                )
+    return filled
+
+
 def main():
     with open(CSV_PATH, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    rows = fill_missing_days(rows)
     rows.sort(key=sort_key)
 
     wb = Workbook()
