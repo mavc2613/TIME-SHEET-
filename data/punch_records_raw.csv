@@ -456,7 +456,7 @@ employee_id,date,time_in,time_out,num_records,source_image,notes
 25,2026-08-10,18:08,05:30,2,IMG_20260904_213256.jpg,Night Security
 25,2026-08-09,17:20,13:07,2,IMG_20260904_213256.jpg,Night Security
 25,2026-08-08,,10:40,1,IMG_20260904_213256.jpg,Night Security; single punch only
-25,2026-08-07,18:30,18:24,2,IMG_20260904_213256.jpg,Night Security
+25,2026-08-07,18:30,18:24,2,IMG_20260904_213256.jpg,Night Security; PLEASE VERIFY: check-in/out only 6 min apart across the day boundary (~23.9h shift) - possible missed punch
 25,2026-08-06,,06:34,1,IMG_20260904_213303.jpg,Night Security; single punch only
 25,2026-08-04,18:29,09:16,2,IMG_20260904_213303.jpg,Night Security
 25,2026-08-03,17:51,08:24,3,IMG_20260904_213303.jpg,Night Security; extra punch: 17:50

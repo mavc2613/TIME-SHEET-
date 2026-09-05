@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = ROOT / "data" / "punch_records.csv"
 OUT_PATH = ROOT / "output" / "timesheet.xlsx"
 
-HEADERS = ["Employee ID", "Date", "Time Out", "Time In", "Notes"]
+HEADERS = ["Employee ID", "Date", "Time Out", "Time In", "Total Hours", "Notes"]
 FONT_NAME = "Arial"
 BLANK = "-"
 FRIDAY_FILL = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
@@ -45,6 +45,18 @@ def parse_time(value):
         except ValueError:
             continue
     return value
+
+
+def calc_total_hours(time_in_val, time_out_val):
+    if not isinstance(time_in_val, dt.time) or not isinstance(time_out_val, dt.time):
+        return None
+    if time_in_val == time_out_val:
+        return None  # identical in/out is a flagged read error, not a real 0/24h shift
+    start = dt.datetime.combine(dt.date.min, time_in_val)
+    end = dt.datetime.combine(dt.date.min, time_out_val)
+    if end <= start:
+        end += dt.timedelta(days=1)  # shift crossed midnight (e.g. night security)
+    return round((end - start).total_seconds() / 3600, 2)
 
 
 def sort_key(rec):
@@ -117,14 +129,18 @@ def main():
         prev_employee_id = employee_id
 
         date_val = parse_date(rec.get("date", "")) or BLANK
-        time_out_val = parse_time(rec.get("time_out", "")) or BLANK
-        time_in_val = parse_time(rec.get("time_in", "")) or BLANK
+        time_out_raw = parse_time(rec.get("time_out", ""))
+        time_in_raw = parse_time(rec.get("time_in", ""))
+        total_hours = calc_total_hours(time_in_raw, time_out_raw)
+        time_out_val = time_out_raw or BLANK
+        time_in_val = time_in_raw or BLANK
         notes_val = rec.get("notes", "").strip() or BLANK
         values = [
             employee_id or BLANK,
             date_val,
             time_out_val,
             time_in_val,
+            total_hours if total_hours is not None else BLANK,
             notes_val,
         ]
         is_friday = isinstance(date_val, dt.date) and date_val.weekday() == 4
@@ -135,11 +151,13 @@ def main():
                 cell.number_format = "yyyy-mm-dd"
             if c in (3, 4) and isinstance(val, dt.time):
                 cell.number_format = "HH:MM"
+            if c == 5 and isinstance(val, (int, float)):
+                cell.number_format = "0.00"
             if is_friday:
                 cell.fill = FRIDAY_FILL
         r += 1
 
-    widths = [14, 12, 10, 10, 40]
+    widths = [14, 12, 10, 10, 12, 40]
     for i, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
