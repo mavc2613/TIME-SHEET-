@@ -5,6 +5,7 @@ Builds output/timesheet.xlsx from data/punch_records.csv.
 Run this after new rows are appended to the CSV:
     python3 scripts/build_timesheet.py
 """
+import calendar
 import csv
 import datetime as dt
 from pathlib import Path
@@ -70,48 +71,39 @@ def sort_key(rec):
 
 
 def fill_missing_days(rows):
-    all_dates = [parse_date(rec.get("date", "")) for rec in rows]
-    all_dates = [d for d in all_dates if isinstance(d, dt.date)]
-    if not all_dates:
-        return rows
-
-    full_range = [
-        dt.date.fromordinal(o)
-        for o in range(min(all_dates).toordinal(), max(all_dates).toordinal() + 1)
-    ]
-
+    """Fill gaps using the full calendar month(s) each row's date belongs to."""
     by_employee = {}
+    months = set()
     for rec in rows:
-        by_employee.setdefault(rec.get("employee_id", ""), set()).add(
-            parse_date(rec.get("date", ""))
-        )
+        d = parse_date(rec.get("date", ""))
+        if not isinstance(d, dt.date):
+            continue
+        months.add((d.year, d.month))
+        by_employee.setdefault(rec.get("employee_id", ""), set()).add(d)
 
     filled = list(rows)
-    for employee_id, existing_dates in by_employee.items():
-        for day in full_range:
-            if day not in existing_dates:
-                filled.append(
-                    {
-                        "employee_id": employee_id,
-                        "date": day.isoformat(),
-                        "time_in": "",
-                        "time_out": "",
-                        "notes": "No entry",
-                    }
-                )
+    for year, month in months:
+        last_day = calendar.monthrange(year, month)[1]
+        month_days = [dt.date(year, month, day) for day in range(1, last_day + 1)]
+        for employee_id, existing_dates in by_employee.items():
+            # Only fill employees who have at least one record in this month.
+            if not any(d.year == year and d.month == month for d in existing_dates):
+                continue
+            for day in month_days:
+                if day not in existing_dates:
+                    filled.append(
+                        {
+                            "employee_id": employee_id,
+                            "date": day.isoformat(),
+                            "time_in": "",
+                            "time_out": "",
+                            "notes": "No entry",
+                        }
+                    )
     return filled
 
 
-def main():
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-    rows = fill_missing_days(rows)
-    rows.sort(key=sort_key)
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Punch Records"
-
+def write_sheet(ws, rows):
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(name=FONT_NAME, bold=True, color="FFFFFF")
     for col, header in enumerate(HEADERS, start=1):
@@ -162,10 +154,33 @@ def main():
         ws.column_dimensions[get_column_letter(i)].width = width
 
     ws.freeze_panes = "A2"
+    return r - 1  # last written row count (header + data)
+
+
+def main():
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    rows = fill_missing_days(rows)
+
+    by_month = {}
+    for rec in rows:
+        d = parse_date(rec.get("date", ""))
+        key = (d.year, d.month) if isinstance(d, dt.date) else (0, 0)
+        by_month.setdefault(key, []).append(rec)
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    total_rows = 0
+    for (year, month) in sorted(by_month.keys()):
+        month_rows = sorted(by_month[(year, month)], key=sort_key)
+        sheet_name = dt.date(year, month, 1).strftime("%B %Y") if year else "Undated"
+        ws = wb.create_sheet(title=sheet_name)
+        write_sheet(ws, month_rows)
+        total_rows += len(month_rows)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUT_PATH)
-    print(f"Wrote {len(rows)} rows to {OUT_PATH}")
+    print(f"Wrote {total_rows} rows across {len(by_month)} sheet(s) to {OUT_PATH}")
 
 
 if __name__ == "__main__":
